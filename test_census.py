@@ -1,5 +1,6 @@
 import os
 import math
+import random
 import numpy as np
 import pandas as pd
 import tensorflow as tf
@@ -8,6 +9,7 @@ from tensorflow.keras import layers
 import tensorflow_addons as tfa
 import matplotlib.pyplot as plt
 from census_config import *
+
 
 def load_census_data():
     train_data_file = "census_data/n_train_data.csv"
@@ -68,6 +70,7 @@ cfg = {
     'dropout_rate'              : DROPOUT_RATE,
     'batch_size'                : BATCH_SIZE,
     'num_epochs'                : NUM_EPOCHS,
+    'seed'                      : SEED,
 }
 
 
@@ -126,6 +129,7 @@ def create_mlp(hidden_units, dropout_rate, activation, normalization_layer, name
         mlp_layers.append(layers.Dropout(dropout_rate))
 
     return keras.Sequential(mlp_layers, name=name)
+
 
 def create_baseline_model(cfg):
     inputs = create_model_inputs(cfg)
@@ -245,8 +249,25 @@ def create_tabtransformer_model(cfg, use_column_embedding=False,):
     model = keras.Model(inputs=inputs, outputs=outputs)
     return model
 
-baseline_model = create_baseline_model(cfg)
 
+def set_global_determinism(seed):
+    def set_seeds(seed):
+        os.environ['PYTHONHASHSEED'] = str(seed)
+        random.seed(seed)
+        tf.random.set_seed(seed)
+        np.random.seed(seed)
+
+    set_seeds(seed=seed)
+
+    os.environ['TF_DETERMINISTIC_OPS'] = '1'
+    os.environ['TF_CUDNN_DETERMINISTIC'] = '1'
+
+    tf.config.threading.set_inter_op_parallelism_threads(1)
+    tf.config.threading.set_intra_op_parallelism_threads(1)
+
+set_global_determinism(seed=cfg['seed'])
+
+# baseline_model = create_baseline_model(cfg)
 # history = run_experiment(
 #     model=baseline_model,
 #     train_data_file=train_data_file,
@@ -258,8 +279,6 @@ baseline_model = create_baseline_model(cfg)
 # )
 
 tabtransformer_model = create_tabtransformer_model(cfg=cfg, use_column_embedding=True)
-
-
 history = run_experiment(
     model=tabtransformer_model,
     train_data_file=train_data_file,
